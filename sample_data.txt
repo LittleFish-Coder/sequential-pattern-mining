@@ -1,0 +1,4 @@
+        10  1  a  2  a  2  b  2  c  3  a  3  c  4  d  5  c  5  f
+        20  6  a  6  d  7  c  8  b  8  c  9  a  9  e
+        30  10  e  10  f  11  a  11  b  12  d  12  f  13  c  14  b
+        40  15  e  16  g  17  a  17  f  18  c  19  b  20  c
