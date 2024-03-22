@@ -85,8 +85,9 @@ def find_frequent_items(sequences, min_sup):
     return frequent_items
 
 
-def output_results(results, min_sup, output_path="output.txt"):
-
+def output_results(results, min_sup, output_path="output"):
+    # custom output format
+    output_path = f"{output_path}_{min_sup}.txt"
     with open(output_path, "w") as f:
         f.write(f"min_sup: {min_sup}\n")
         for itemset, count in results:
@@ -94,18 +95,12 @@ def output_results(results, min_sup, output_path="output.txt"):
             print(f"{itemset} SUP: {count}")
 
 
-# Output Format: (given min_sup = 187)
-# `9126 -1 7088 9126 -1 SUP: 187
-# The numbers are the items.
-# In this example, -1 is used to distinguish the different time pattern in a sequence.
-# You can use any symbol like (), ||, to replace it.
-
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Apriori Algorithm")
     parser.add_argument("--input", type=str, default="seqdata.data.txt", help="input file name")
     parser.add_argument("--min_sup", type=int, default=187, help="input min_sup")
-    parser.add_argument("--output", type=str, default="output.txt", help="output file name")
+    parser.add_argument("--output", type=str, default="output", help="output file name")
     args = parser.parse_args()
 
     # get the input file, min_supp and output_path
@@ -127,3 +122,9 @@ if __name__ == "__main__":
     print(f"Time: {end - start} seconds")
     # print(f"sequential_pattern: {sequential_pattern}")
     output_results(sequential_pattern, min_sup)
+
+# Output Format: (given min_sup = 187)
+# `9126 -1 7088 9126 -1 SUP: 187
+# The numbers are the items.
+# In this example, -1 is used to distinguish the different time pattern in a sequence.
+# You can use any symbol like (), ||, to replace it.
