@@ -10,84 +10,88 @@ def generate_sequences(input_path="seqdata.dat.txt"):
 
     # generate the sequences table
     sequences = {}
-
     for line in lines:
         seq = line.split()
         seq_id = seq.pop(0)  # extract the sequence id
 
-        transaction_table = {}
-
+        transactions = defaultdict(list)
         for i in range(0, len(seq), 2):
-            transaction_time = int(seq[i])
-            item_id = int(seq[i + 1])
+            tid = seq[i]
+            item = seq[i + 1]
+            transactions[tid].append(item)
+        # make each itemsets in transaction.values() into tuple
+        for tid, itemsets in transactions.items():
+            transactions[tid] = tuple(itemsets)
+        sequences[seq_id] = list(transactions.values())
 
-            if transaction_time in transaction_table:
-                transaction_table[transaction_time].append(item_id)
-            else:
-                transaction_table[transaction_time] = [item_id]
-
-        sequences[seq_id] = list(transaction_table.values())
-
-        # print(sequences)  # {'1': [[166, 4103, 8715], [4103, 8715], [166, 3704, 6568, 8375, 8715], [166, 9406]]}
-
+    # print(sequences)  # {'sid': [ itemsets, itemsets, ...], }
     return sequences
 
 
-def PrefixSpan(sequences, min_support):
-    frequent_items = find_frequent_items(sequences, min_support)
-    # print(f"len of 1-item frequent_items after pruning: {len(frequent_items)}")
+def PrefixSpan(sequences, prefix, min_sup):
+    # Find frequent items for the given prefix
+    freq_items = find_frequent_items(sequences, min_sup)
 
-    frequent_patterns = []
-    for item in frequent_items:
-        projected_db = build_projected_database(sequences, [item])
-        frequent_patterns.extend(prefix_span_mining(projected_db, [item], min_support))
+    # output the frequent items
+    for item, count in freq_items.items():
+        yield (item,), count
 
-    return frequent_patterns
+    # for each frequent item, extend the prefix and project the sequences
+    for item, count in freq_items.items():
+        new_prefix = prefix + (item,)
+        new_sequences = projected_database(sequences, new_prefix)
 
+        # if the projected database is not empty, recursively call PrefixSpan
+        if new_sequences:
+            for projected_sequence, projected_count in PrefixSpan(
+                new_sequences, new_prefix, min_sup
+            ):
+                yield projected_sequence + (item,), projected_count
 
-def prefix_span_mining(projected_db, prefix, min_support):
-    frequent_items = find_frequent_items(projected_db, min_support)
-
-    # 步驟2: 對每個頻繁項目進行遞歸
-    frequent_patterns = []
-    for item in frequent_items:
-        new_prefix = prefix + [item]
-        projected_db = build_projected_database(projected_db, new_prefix)
-        frequent_patterns.append(new_prefix)
-        frequent_patterns.extend(prefix_span_mining(projected_db, new_prefix, min_support))
-
-    return frequent_patterns
+    return None
 
 
-def find_frequent_items(sequences, min_support):
+def projected_database(sequences, prefix):
+    projected_sequences = {}
+    for sid, sequence in sequences.items():
+        projected_sequence = []
+        for itemset in sequence:
+            projected_itemset = []
+            for i in range(len(itemset)):
+                if itemset[i] == prefix[0]:
+                    projected_itemset = itemset[i + 1 :]
+                    break
+            if projected_itemset:
+                projected_sequence.append(projected_itemset)
+        if projected_sequence:
+            projected_sequences[sid] = projected_sequence
+
+    return projected_sequences
+
+
+def find_frequent_items(sequences, min_sup):
     item_counts = defaultdict(int)
-    for sid, sequence in sequences.items():  # '103': [ [1,2,3], [3,2,1] ]
-        itemset = set()
-        for transaction in sequence:  # [1,2,3]
-            itemset.update(transaction)
-        for item in itemset:
+    for sid, sequence in sequences.items():
+        curr_sequence_itemset = set()
+        for itemset in sequence:
+            for item in itemset:
+                curr_sequence_itemset.add(item)
+        for item in curr_sequence_itemset:
             item_counts[item] += 1
 
-    frequent_items = [item for item, count in item_counts.items() if count >= min_support]
+    # Find the frequent items
+    frequent_items = {item: count for item, count in item_counts.items() if count >= min_sup}
+
     return frequent_items
 
 
-def build_projected_database(sequences, prefix):
-    projected_db = defaultdict(list)
-    for sid, sequence in sequences.items():
-        prefix_index = 0
-        for transaction_index, transaction in enumerate(sequence):
-            if prefix_index >= len(prefix):
-                break
-            if transaction[prefix_index : prefix_index + len(prefix)] == prefix:
-                remaining_sequence = sequence[transaction_index + 1 :]
-                projected_db[sid].extend(remaining_sequence)
-                prefix_index = len(prefix)
-    return projected_db
+def output_results(results, min_sup, output_path="output.txt"):
 
-
-def output_results(results):
-    pass
+    with open(output_path, "w") as f:
+        f.write(f"min_sup: {min_sup}\n")
+        for itemset, count in results:
+            f.write(f"{itemset} SUP: {count}\n")
+            print(f"{itemset} SUP: {count}")
 
 
 # Output Format: (given min_sup = 187)
@@ -100,24 +104,26 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Apriori Algorithm")
     parser.add_argument("--input", type=str, default="seqdata.data.txt", help="input file name")
-    parser.add_argument("--min_supp", type=int, default=200, help="input min_supp")
+    parser.add_argument("--min_sup", type=int, default=187, help="input min_sup")
+    parser.add_argument("--output", type=str, default="output.txt", help="output file name")
     args = parser.parse_args()
 
-    # get the input file, min_supp and min_conf
+    # get the input file, min_supp and output_path
     input_file = args.input
-    min_supp = args.min_supp
+    min_sup = args.min_sup
+    output_path = args.output
     print(f"input file: {input_file}")
-    print(f"min_supp: {min_supp}")
+    print(f"min_sup: {min_sup}")
 
     sequences = generate_sequences("seqdata.dat.txt")
+    # print(f"len of sequences: {len(sequences)}")
 
     ##### start time #####
     start = time.time()
-
-    results = PrefixSpan(sequences, min_supp)
-
+    sequential_pattern = list(PrefixSpan(sequences, tuple(), min_sup))
     end = time.time()
     ##### end time #####
 
     print(f"Time: {end - start} seconds")
-    output_results(results)
+    # print(f"sequential_pattern: {sequential_pattern}")
+    output_results(sequential_pattern, min_sup)
